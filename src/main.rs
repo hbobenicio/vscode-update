@@ -1,21 +1,32 @@
+use std::path::{Path, PathBuf};
+
+use log::{info, error};
 use tokio::io::AsyncWriteExt;
-use std::path::PathBuf;
-// use tokio::prelude::*;
 
 const VSCODE_DOWNLOAD_URL: &str = "https://update.code.visualstudio.com/latest/linux-deb-x64/stable";
 
 fn main() {
+    log_init();
+
     if let Err(err) = run() {
-        eprintln!("error: {}", err);
+        error!("{}", err);
         std::process::exit(1);
     }
+}
+
+fn log_init() {
+    if std::env::var_os("RUST_LOG").is_none() {
+        std::env::set_var("RUST_LOG", "info");
+    }
+    env_logger::init();
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     // Tokio 2
     let mut runtime = tokio::runtime::Builder::new()
-        .basic_scheduler()
+        .threaded_scheduler()
         .enable_all()
+        .max_threads(4)
         .build()?;
 
     runtime.block_on(main_task())?;
@@ -24,14 +35,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn main_task() -> Result<(), Box<dyn std::error::Error>> {
+    info!("downloading the latest vscode...");
     let output_file_path: PathBuf = download_vscode().await?;
 
-    let result = std::process::Command::new("sudo")
-        .args(&["dpkg", "-i", output_file_path.to_str().unwrap()])
-        .status()?;
-    if !result.success() {
-        return Err("dpkg failed".into());
-    }
+    info!("installing vscode...");
+    install_vs_code(&output_file_path).await?;
 
     Ok(())
 }
@@ -47,6 +55,7 @@ async fn download_vscode() -> Result<PathBuf, Box<dyn std::error::Error>> {
         .await?
         .error_for_status()?; // generate an error if server didn't respond OK
 
+    // Try to get the filename of the last url segment. If it fails, use "vscode.deb" as default
     let file_name: &str = response.url()
         .path_segments()
         .and_then(|segments| segments.last())
@@ -56,6 +65,7 @@ async fn download_vscode() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let mut output_file_path = std::env::temp_dir();
     output_file_path.push(file_name);
 
+    // Creates a new file and asynchronously writes buffers to it that are comming from the response stream
     let mut output_file: tokio::fs::File = tokio::fs::File::create(&output_file_path).await?;
     while let Some(chunk) = response.chunk().await? {
         output_file.write(&chunk).await?;
@@ -64,6 +74,19 @@ async fn download_vscode() -> Result<PathBuf, Box<dyn std::error::Error>> {
     Ok(output_file_path)
 }
 
-async fn install_vs_code() -> Result<(), Box<dyn std::error::Error>> {
-    unimplemented!();
+async fn install_vs_code<P>(output_file_path: P) -> Result<(), Box<dyn std::error::Error>>
+    where P: AsRef<Path>
+{
+    let output_file_path: &str = output_file_path.as_ref()
+        .to_str()
+        .ok_or("output path is not a valid utf-8 string")?;
+
+    let result = std::process::Command::new("sudo")
+        .args(&["dpkg", "-i", output_file_path])
+        .status()?;
+    if !result.success() {
+        return Err("dpkg failed".into());
+    }
+
+    Ok(())
 }
