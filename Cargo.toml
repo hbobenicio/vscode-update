@@ -1,0 +1,15 @@
+[package]
+name = "vscode-update"
+version = "0.1.0"
+authors = ["hbobenicio <hbobenicio@gmail.com>"]
+edition = "2018"
+
+[profile.release]
+lto = true
+
+[dependencies]
+reqwest = { version = "0.10.9" }
+
+# Would be awesome to use Tokio 3, but request atm is incompatible with it...
+# https://github.com/seanmonstar/reqwest/issues/1060
+tokio = { version = "0.2", features = ["full"] }
