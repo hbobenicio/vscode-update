@@ -39,7 +39,7 @@ async fn main_task() -> Result<(), Box<dyn std::error::Error>> {
     let output_file_path: PathBuf = download_vscode().await?;
 
     info!("installing vscode...");
-    install_vs_code(&output_file_path).await?;
+    install_vscode(&output_file_path).await?;
 
     Ok(())
 }
@@ -74,7 +74,7 @@ async fn download_vscode() -> Result<PathBuf, Box<dyn std::error::Error>> {
     Ok(output_file_path)
 }
 
-async fn install_vs_code<P>(output_file_path: P) -> Result<(), Box<dyn std::error::Error>>
+async fn install_vscode<P>(output_file_path: P) -> Result<(), Box<dyn std::error::Error>>
     where P: AsRef<Path>
 {
     let output_file_path: &str = output_file_path.as_ref()
