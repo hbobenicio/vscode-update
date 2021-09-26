@@ -1,9 +1,9 @@
 mod logging;
 
+use std::fs::File;
 use std::path::{Path, PathBuf};
 
 use log::{info, error};
-use std::io::{Read, Write};
 
 const VSCODE_DOWNLOAD_URL: &str = "https://update.code.visualstudio.com/latest/linux-deb-x64/stable";
 
@@ -17,11 +17,6 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    main_task()?;
-    Ok(())
-}
-
-fn main_task() -> Result<(), Box<dyn std::error::Error>> {
     info!("downloading the latest vscode...");
     let output_file_path: PathBuf = download_vscode()?;
 
@@ -42,21 +37,17 @@ fn download_vscode() -> Result<PathBuf, Box<dyn std::error::Error>> {
             .send()?
     };
 
-    let mut data: Vec<u8> = Vec::new();
-    response.read_to_end(&mut data)?;
+    let tmp_file_path: PathBuf = vscode_tmp_file_path();
+    let mut output_file: File = File::create(&tmp_file_path)?;
 
-    let output_file_path = vscode_file_path();
-    let mut output_file: std::fs::File = std::fs::File::create(&output_file_path)?;
+    std::io::copy(&mut response, &mut output_file)?;
 
-    output_file.write_all(&data)?;
-
-    Ok(output_file_path)
+    Ok(tmp_file_path)
 }
 
-fn vscode_file_path() -> PathBuf {
+fn vscode_tmp_file_path() -> PathBuf {
     let mut path = std::env::temp_dir();
     path.push("vscode.deb");
-
     path
 }
 
@@ -65,7 +56,7 @@ fn install_vscode<P>(output_file_path: P) -> Result<(), Box<dyn std::error::Erro
 {
     let output_file_path: &str = output_file_path.as_ref()
         .to_str()
-        .ok_or("output path is not a valid utf-8 string")?;
+        .ok_or("vscode tmp download path is not a valid utf-8 string somehow... aborting")?;
 
     let result = std::process::Command::new("sudo")
         .args(&["dpkg", "-i", output_file_path])
