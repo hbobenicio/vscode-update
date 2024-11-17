@@ -17,7 +17,7 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    info!("downloading the latest vscode...");
+    info!("downloading the latest vscode from {} ...", VSCODE_DOWNLOAD_URL);
     let output_file_path: PathBuf = download_vscode()?;
 
     info!("installing vscode...");
